@@ -1,0 +1,10 @@
+[project]
+name = "ask-memory"
+version = "0.1.0"
+description = "A Python project"
+requires-python = ">=3.13"
+dependencies = []
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
