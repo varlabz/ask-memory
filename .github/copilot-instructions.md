@@ -1,0 +1,1 @@
+read https://raw.githubusercontent.com/varlabz/ask/refs/heads/main/docs/code-instructions.md
