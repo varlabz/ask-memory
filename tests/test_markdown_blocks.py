@@ -313,3 +313,84 @@ def test_blocks_to_markdown_filter():
 
     assert "First paragraph." not in filtered
     assert "Second paragraph." in filtered
+
+
+def test_table_with_list_items_roundtrip():
+    markdown = dedent(
+        """
+        | Feature | Details |
+        | --- | --- |
+        | Pros | - Fast\\n- Reliable |
+        | Cons | - Expensive |
+        """
+    )
+
+    blocks = parse_markdown_blocks(markdown)
+    assert blocks == [
+        {
+            "type": "table",
+            "header": ["Feature", "Details"],
+            "rows": [
+                ["Pros", "- Fast\\n- Reliable"],
+                ["Cons", "- Expensive"],
+            ],
+        }
+    ]
+
+    regenerated = blocks_to_markdown(blocks)
+    assert "- Fast" in regenerated
+
+
+def test_paragraph_with_embedded_escaped_list():
+    markdown = dedent(
+        """
+        Paragraph with inline bullet list:
+        \\- Item one
+        \\- Item two
+        Closing sentence.
+        """
+    )
+
+    blocks = parse_markdown_blocks(markdown)
+
+    assert blocks == [
+        {
+            "type": "paragraph",
+            "text": "Paragraph with inline bullet list:\n- Item one\n- Item two\nClosing sentence.",
+        }
+    ]
+
+    regenerated = blocks_to_markdown(blocks)
+    assert regenerated == (
+        "Paragraph with inline bullet list:\n"
+        "- Item one\n"
+        "- Item two\n"
+        "Closing sentence.\n"
+    )
+
+
+def test_inline_code_preserved_in_list_item():
+    markdown = "- Variables and functions: `snake_case`\n"
+
+    blocks = parse_markdown_blocks(markdown)
+
+    assert blocks == [
+        {
+            "type": "list",
+            "ordered": False,
+            "items": [
+                {
+                    "type": "list_item",
+                    "children": [
+                        {
+                            "type": "paragraph",
+                            "text": "Variables and functions: `snake_case`",
+                        }
+                    ],
+                }
+            ],
+        }
+    ]
+
+    regenerated = blocks_to_markdown(blocks)
+    assert "`snake_case`" in regenerated

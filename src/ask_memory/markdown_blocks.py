@@ -1,6 +1,6 @@
-"""Utilities for extracting top-level Markdown blocks into JSON-ready dicts.
+"""
+Utilities for extracting top-level Markdown blocks into JSON-ready dicts.
 
-Requires ``mistune`` to be installed in the current environment.
 """
 from __future__ import annotations
 
@@ -165,8 +165,14 @@ def convert_children(node: Block) -> List[Block]:
 def extract_text(node: Block) -> str:
     """Recursively collect raw text from a node and its descendants."""
     node_type_value = node.get("type")
-    if isinstance(node_type_value, str) and node_type_value == NodeType.TEXT.value:
-        return node.get("raw", "")
+    if isinstance(node_type_value, str):
+        if node_type_value == NodeType.TEXT.value:
+            return node.get("raw", "")
+        if node_type_value in {"softbreak", "linebreak"}:
+            return "\n"
+        if node_type_value == "codespan":
+            raw = node.get("raw", "")
+            return f"`{raw}`"
 
     children: Iterable[Block] = node.get("children", [])
     return "".join(extract_text(child) for child in children)
@@ -370,7 +376,31 @@ if __name__ == "__main__":
         sys.exit(1)
     
     file_path = sys.argv[1]
-    with open(file_path, "r", encoding="utf-8") as f:
-        markdown_text = f.read()    
-    blocks = parse_markdown_blocks(markdown_text)
-    print(json.dumps(blocks, indent=2))
+    if not file_path.lower().endswith(('.md', '.json')):
+        print("Error: File must have .md or .json extension.")
+        sys.exit(1)
+    
+    try:
+        with open(file_path, "r", encoding="utf-8") as f:
+            content = f.read()
+        
+        if file_path.lower().endswith('.md'):
+            # Generate JSON from Markdown
+            blocks = parse_markdown_blocks(content)
+            print(json.dumps(blocks, indent=2))
+        elif file_path.lower().endswith('.json'):
+            # Generate Markdown from JSON
+            blocks = json.loads(content)
+            markdown = blocks_to_markdown(blocks)
+            print(markdown)
+    except FileNotFoundError:
+        print(f"Error: File '{file_path}' not found.")
+        sys.exit(1)
+    except json.JSONDecodeError as e:
+        print(f"Error: Invalid JSON in '{file_path}': {e}")
+        sys.exit(1)
+    except Exception as e:
+        print(f"Error: {e}")
+        sys.exit(1)
+    
+    

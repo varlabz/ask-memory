@@ -11,6 +11,8 @@ from ask import AgentASK
 from ask.core.config import load_config_dict
 from ask.core.memory import Memory
 
+from ask_memory.markdown_blocks import parse_markdown_blocks
+
 llm = {
     "model": "ollama:gemma3:4b-it-q4_K_M",
     "base_url": "http://bacook.local:11434/v1/",
@@ -67,6 +69,10 @@ def token_count_str(string: str) -> int:
     return len(encoding.encode(string, disallowed_special=()))
 
 class LLMSemanticChunker:
+    async def split_file_block(self, file_path: str) -> list[str]:
+        md = MarkItDown(enable_plugins=True).convert(file_path).markdown
+        blocks = parse_markdown_blocks(md)
+
     async def split_file(self, file_path: str) -> list[str]:
         return await self.split_text(MarkItDown(enable_plugins=True).convert(file_path).markdown)
 
@@ -137,7 +143,7 @@ class LLMSemanticChunker:
             for i in range(current_chunk, len(chunks)):
                 token_count += token_count_str(chunks[i].text)
                 chunked_input += f"<|start_chunk_{i+1}|>{chunks[i]}<|end_chunk_{i+1}|>\n"
-                if token_count > 1000:  # define max tokens per input for embedding model
+                if token_count > 2000:  # define max tokens per input for embedding model
                     break
 
             print(f"current_chunk: {current_chunk}, token_count: {token_count}")
