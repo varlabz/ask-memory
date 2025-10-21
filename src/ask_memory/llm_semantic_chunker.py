@@ -11,7 +11,7 @@ from ask import AgentASK
 from ask.core.config import load_config_dict
 from ask.core.memory import Memory
 
-from ask_memory.markdown_blocks import parse_markdown_blocks
+from ask_memory.markdown_blocks import markdown_to_blocks
 
 llm = {
     "model": "ollama:gemma3:4b-it-q4_K_M",
@@ -71,7 +71,7 @@ def token_count_str(string: str) -> int:
 class LLMSemanticChunker:
     async def split_file_block(self, file_path: str) -> list[str]:
         md = MarkItDown(enable_plugins=True).convert(file_path).markdown
-        blocks = parse_markdown_blocks(md)
+        blocks = markdown_to_blocks(md)
 
     async def split_file(self, file_path: str) -> list[str]:
         return await self.split_text(MarkItDown(enable_plugins=True).convert(file_path).markdown)

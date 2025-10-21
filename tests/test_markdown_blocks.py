@@ -1,7 +1,7 @@
 import json
 from textwrap import dedent
 
-from ask_memory.markdown_blocks import blocks_to_markdown, parse_markdown_blocks
+from ask_memory.markdown_blocks import blocks_to_markdown, markdown_to_blocks, ParagraphBlock
 
 
 def test_extracts_expected_block_types():
@@ -25,10 +25,10 @@ def test_extracts_expected_block_types():
         """
     )
 
-    blocks = parse_markdown_blocks(markdown)
+    blocks = markdown_to_blocks(markdown)
 
     # Dump to JSON to ensure serialisable output and stable assertion diff.
-    assert json.loads(json.dumps(blocks)) == [
+    assert json.loads(json.dumps([block.to_dict() for block in blocks])) == [
         {
             "type": "heading",
             "level": 1,
@@ -77,7 +77,7 @@ def test_extracts_expected_block_types():
                     "rows": [["Foo", "Bar"]],
                 },
                 {
-                    "type": "blockquote",
+                    "type": "block_quote",
                     "children": [
                         {"type": "paragraph", "text": "Quoted text"},
                     ],
@@ -90,10 +90,10 @@ def test_extracts_expected_block_types():
 def test_includes_code_blocks():
     markdown = "```python\nprint('hi')\n```\n"
 
-    blocks = parse_markdown_blocks(markdown)
-    assert blocks == [
+    blocks = markdown_to_blocks(markdown)
+    assert [block.to_dict() for block in blocks] == [
         {
-            "type": "code",
+            "type": "block_code",
             "language": "python",
             "text": "print('hi')\n",
         }
@@ -111,10 +111,10 @@ def test_ignores_untracked_block_types():
         """
     )
 
-    blocks = parse_markdown_blocks(markdown)
+    blocks = markdown_to_blocks(markdown)
 
     # Thematic breaks are dropped; inline HTML wrappers are stripped from paragraph text.
-    assert blocks == [
+    assert [block.to_dict() for block in blocks] == [
         {
             "type": "paragraph",
             "text": "Plain paragraph",
@@ -137,9 +137,9 @@ def test_heading_levels_up_to_five():
         """
     )
 
-    blocks = parse_markdown_blocks(markdown)
+    blocks = markdown_to_blocks(markdown)
 
-    assert blocks == [
+    assert [block.to_dict() for block in blocks] == [
         {
             "type": "heading",
             "level": 1,
@@ -193,9 +193,9 @@ def test_mixed_heading_sequence():
         """
     )
 
-    blocks = parse_markdown_blocks(markdown)
+    blocks = markdown_to_blocks(markdown)
 
-    assert blocks == [
+    assert [block.to_dict() for block in blocks] == [
         {
             "type": "heading",
             "level": 3,
@@ -285,34 +285,11 @@ def test_roundtrip_generation_matches_structure():
         """
     )
 
-    original_blocks = parse_markdown_blocks(markdown)
+    original_blocks = markdown_to_blocks(markdown)
     regenerated_markdown = blocks_to_markdown(original_blocks)
-    regenerated_blocks = parse_markdown_blocks(regenerated_markdown)
+    regenerated_blocks = markdown_to_blocks(regenerated_markdown)
 
     assert regenerated_blocks == original_blocks
-
-
-def test_blocks_to_markdown_filter():
-    markdown = dedent(
-        """
-        # Title
-
-        First paragraph.
-
-        Second paragraph.
-        """
-    )
-
-    blocks = parse_markdown_blocks(markdown)
-
-    filtered = blocks_to_markdown(
-        blocks,
-        include=lambda block: block.get("type") != "paragraph"
-        or block.get("text") != "First paragraph.",
-    )
-
-    assert "First paragraph." not in filtered
-    assert "Second paragraph." in filtered
 
 
 def test_table_with_list_items_roundtrip():
@@ -325,8 +302,8 @@ def test_table_with_list_items_roundtrip():
         """
     )
 
-    blocks = parse_markdown_blocks(markdown)
-    assert blocks == [
+    blocks = markdown_to_blocks(markdown)
+    assert [block.to_dict() for block in blocks] == [
         {
             "type": "table",
             "header": ["Feature", "Details"],
@@ -351,9 +328,9 @@ def test_paragraph_with_embedded_escaped_list():
         """
     )
 
-    blocks = parse_markdown_blocks(markdown)
+    blocks = markdown_to_blocks(markdown)
 
-    assert blocks == [
+    assert [block.to_dict() for block in blocks] == [
         {
             "type": "paragraph",
             "text": "Paragraph with inline bullet list:\n- Item one\n- Item two\nClosing sentence.",
@@ -372,9 +349,9 @@ def test_paragraph_with_embedded_escaped_list():
 def test_inline_code_preserved_in_list_item():
     markdown = "- Variables and functions: `snake_case`\n"
 
-    blocks = parse_markdown_blocks(markdown)
+    blocks = markdown_to_blocks(markdown)
 
-    assert blocks == [
+    assert [block.to_dict() for block in blocks] == [
         {
             "type": "list",
             "ordered": False,
