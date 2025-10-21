@@ -4,7 +4,7 @@ Utilities for extracting top-level Markdown blocks into JSON-ready dicts.
 from __future__ import annotations
 
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 from dataclasses import dataclass, field
 import collections.abc
 
@@ -41,6 +41,10 @@ class BaseBlock:
             },
         )
 
+    def to_md(self, indent: int = 0) -> str:
+        """Render the block to Markdown string."""
+        raise NotImplementedError
+
 
 @dataclass
 class HeadingBlock(BaseBlock):
@@ -48,10 +52,22 @@ class HeadingBlock(BaseBlock):
     text: str = ""
     children: List["BaseBlock"] = field(default_factory=list)
 
+    def to_md(self, indent: int = 0) -> str:
+        level = self.level if isinstance(self.level, int) else 1
+        heading_line = f"{'#' * int(level)} {self.text.strip()}".rstrip()
+        child_lines: List[str] = [line for child in self.children 
+                                       for line in child.to_md(indent).split('\n')]
+        if child_lines:
+            return "\n".join([heading_line, "", *child_lines])
+        return heading_line
+
 
 @dataclass
 class ParagraphBlock(BaseBlock):
     text: str = ""
+
+    def to_md(self, indent: int = 0) -> str:
+        return " " * indent + self.text.strip()
 
 
 @dataclass
@@ -59,10 +75,42 @@ class CodeBlock(BaseBlock):
     language: Optional[str] = None
     text: str = ""
 
+    def to_md(self, indent: int = 0) -> str:
+        language = self.language or ""
+        fence = f"```{language}".rstrip()
+        code = self.text.rstrip("\n")
+        return "\n".join([fence, code, "```"])
+
 
 @dataclass
 class ListItemBlock(BaseBlock):
     children: List["BaseBlock"] = field(default_factory=list)
+
+    def to_md(self, indent: int = 0, ordered: bool = False, index: int = 1) -> str:
+        prefix = f"{index}. " if ordered else "- "
+        child_blocks = self.children
+        if not child_blocks:
+            return " " * indent + prefix.rstrip()
+
+        rendered: List[str] = []
+        first_child = child_blocks[0]
+        if isinstance(first_child, ParagraphBlock):
+            para_lines = first_child.to_md(0).split('\n')
+            if para_lines:
+                rendered.append(" " * indent + prefix + para_lines[0].lstrip())
+                for line in para_lines[1:]:
+                    rendered.append(" " * (indent + len(prefix)) + line.lstrip())
+            else:
+                rendered.append(" " * indent + prefix.rstrip())
+            remaining_children = child_blocks[1:]
+        else:
+            rendered.append(" " * indent + prefix.rstrip())
+            remaining_children = child_blocks
+
+        for child in remaining_children:
+            rendered.extend(child.to_md(indent + len(prefix)).split('\n'))
+
+        return "\n".join(rendered)
 
 
 @dataclass
@@ -70,16 +118,49 @@ class ListBlock(BaseBlock):
     ordered: bool = False
     items: List["BaseBlock"] = field(default_factory=list)
 
+    def to_md(self, indent: int = 0) -> str:
+        rendered: List[str] = []
+        for idx, item in enumerate(self.items, start=1):
+            prefix = f"{idx}. " if self.ordered else "- "
+            if isinstance(item, ListItemBlock):
+                rendered.extend(item.to_md(indent, self.ordered, idx).split('\n'))
+            else:
+                item_lines = item.to_md(0).split('\n')
+                if item_lines:
+                    rendered.append(" " * indent + prefix + item_lines[0].lstrip())
+                    for line in item_lines[1:]:
+                        rendered.append(" " * (indent + len(prefix)) + line.lstrip())
+                else:
+                    rendered.append(" " * indent + prefix.rstrip())
+        return "\n".join(rendered)
+
 
 @dataclass
 class BlockquoteBlock(BaseBlock):
     children: List["BaseBlock"] = field(default_factory=list)
+
+    def to_md(self, indent: int = 0) -> str:
+        inner_lines: List[str] = []
+        for child in self.children:
+            inner_lines.extend(child.to_md(indent).split('\n'))
+        quoted: List[str] = []
+        for line in inner_lines or [""]:
+            quoted.append(f"> {line}".rstrip())
+        return "\n".join(quoted)
 
 
 @dataclass
 class TableBlock(BaseBlock):
     header: List[str] = field(default_factory=list)
     rows: List[List[str]] = field(default_factory=list)
+
+    def to_md(self, indent: int = 0) -> str:
+        header_line = " | ".join(self.header)
+        separator = " | ".join(["---" for _ in self.header])
+        table_lines = [header_line, separator]
+        for row in self.rows:
+            table_lines.append(" | ".join(row))
+        return "\n".join(table_lines)
 
 
 
@@ -103,12 +184,24 @@ def markdown_to_blocks(markdown_text: str) -> List[BaseBlock]:
 
 def blocks_to_markdown(
     blocks: list[BaseBlock],
+    filter_func: Callable[[BaseBlock], bool] = lambda block: True,
 ) -> str:
-    """Render a sequence of block definitions back into Markdown text."""
+    """Render a sequence of block definitions back into Markdown text.
+
+    Args:
+        blocks: List of BaseBlock objects to render.
+        filter_func: Filter function that takes a BaseBlock and returns bool.
+                    Only blocks for which filter_func returns True will be rendered.
+                    Defaults to including all blocks.
+
+    Returns:
+        Markdown string representation of the blocks.
+    """
 
     lines: List[str] = []
     for block in blocks:
-        lines.extend(render_block(block))
+        if filter_func(block):
+            lines.extend(block.to_md().split('\n'))
     lines = _trim_trailing_blank_lines(lines)
     if not lines:
         return ""
@@ -342,97 +435,6 @@ def block_from_dict(data: dict[str, Any]) -> BaseBlock:
         return CodeBlock(type=NodeType.BLOCK_CODE, language=language, text=text)
 
     raise ValueError(f"Unsupported block type: {node_type}")
-
-
-def render_block(block: BaseBlock, indent: int = 0) -> List[str]:
-    """Render a :class:`BaseBlock` back to Markdown lines."""
-
-    if isinstance(block, HeadingBlock):
-        level = block.level if isinstance(block.level, int) else 1
-        heading_line = f"{'#' * int(level)} {block.text.strip()}".rstrip()
-        child_lines: List[str] = []
-        for child in block.children:
-            child_lines.extend(render_block(child, indent))
-        if child_lines:
-            return [heading_line, "", *child_lines]
-        return [heading_line]
-
-    if isinstance(block, ParagraphBlock):
-        return [" " * indent + block.text.strip()]
-
-    if isinstance(block, CodeBlock):
-        language = block.language or ""
-        fence = f"```{language}".rstrip()
-        code = block.text.rstrip("\n")
-        return [fence, code, "```"]
-
-    if isinstance(block, BlockquoteBlock):
-        inner_lines: List[str] = []
-        for child in block.children:
-            inner_lines.extend(render_block(child, indent))
-        quoted: List[str] = []
-        for line in inner_lines or [""]:
-            quoted.append(f"> {line}".rstrip())
-        return quoted
-
-    if isinstance(block, ListBlock):
-        rendered: List[str] = []
-        for idx, item in enumerate(block.items, start=1):
-            rendered.extend(render_list_item(item, block.ordered, indent, idx))
-        return rendered
-
-    if isinstance(block, ListItemBlock):
-        return render_list_item(block, False, indent)
-
-    if isinstance(block, TableBlock):
-        header_line = " | ".join(block.header)
-        separator = " | ".join(["---" for _ in block.header])
-        table_lines = [header_line, separator]
-        for row in block.rows:
-            table_lines.append(" | ".join(row))
-        return table_lines
-
-    return []
-
-
-def render_list_item(
-    item: BaseBlock,
-    ordered: bool,
-    indent: int,
-    index: int = 1,
-) -> List[str]:
-    """Render a list item block to Markdown lines."""
-
-    prefix = f"{index}. " if ordered else "- "
-
-    if isinstance(item, ListItemBlock):
-        child_blocks = item.children
-    else:
-        child_blocks = [item]
-
-    if not child_blocks:
-        return [" " * indent + prefix.rstrip()]
-
-    rendered: List[str] = []
-    first_child = child_blocks[0]
-
-    if isinstance(first_child, ParagraphBlock):
-        para_lines = render_block(first_child, 0)
-        if para_lines:
-            rendered.append(" " * indent + prefix + para_lines[0].lstrip())
-            for line in para_lines[1:]:
-                rendered.append(" " * (indent + len(prefix)) + line.lstrip())
-        else:
-            rendered.append(" " * indent + prefix.rstrip())
-        remaining_children = child_blocks[1:]
-    else:
-        rendered.append(" " * indent + prefix.rstrip())
-        remaining_children = child_blocks
-
-    for child in remaining_children:
-        rendered.extend(render_block(child, indent + len(prefix)))
-
-    return rendered
 
 
 def _trim_trailing_blank_lines(lines: List[str]) -> List[str]:

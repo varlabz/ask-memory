@@ -371,3 +371,123 @@ def test_inline_code_preserved_in_list_item():
 
     regenerated = blocks_to_markdown(blocks)
     assert "`snake_case`" in regenerated
+
+
+def test_blocks_to_markdown_default_filter():
+    """Test that default filter includes all blocks."""
+    markdown = dedent(
+        """
+        # Heading
+
+        Paragraph text.
+
+        - List item
+        """
+    )
+
+    blocks = markdown_to_blocks(markdown)
+    result = blocks_to_markdown(blocks)
+
+    # Should include all blocks
+    assert "# Heading" in result
+    assert "Paragraph text." in result
+    assert "- List item" in result
+
+
+def test_blocks_to_markdown_filter_exclude_headings():
+    """Test filter that excludes heading blocks."""
+    markdown = dedent(
+        """
+        # Heading
+
+        Paragraph text.
+
+        ## Another Heading
+
+        More text.
+        """
+    )
+
+    blocks = markdown_to_blocks(markdown)
+    result = blocks_to_markdown(blocks, filter_func=lambda block: block.type.value != "heading")
+
+    # Since all content is nested under headings, filtering out headings results in empty output
+    assert result.strip() == ""
+
+
+def test_blocks_to_markdown_filter_only_paragraphs():
+    """Test filter that includes only paragraph blocks."""
+    markdown = dedent(
+        """
+        First paragraph.
+
+        - List item
+
+        Second paragraph.
+        """
+    )
+
+    blocks = markdown_to_blocks(markdown)
+    result = blocks_to_markdown(blocks, filter_func=lambda block: block.type.value == "paragraph")
+
+    # Should include only top-level paragraphs
+    assert "# Heading" not in result
+    assert "- List item" not in result
+    assert "First paragraph." in result
+    assert "Second paragraph." in result
+
+
+def test_blocks_to_markdown_filter_by_content():
+    """Test filter based on block content."""
+    from ask_memory.markdown_blocks import HeadingBlock, ParagraphBlock
+
+    markdown = dedent(
+        """
+        # Special Heading
+
+        This is special content.
+
+        # Normal Heading
+
+        This is normal content.
+        """
+    )
+
+    blocks = markdown_to_blocks(markdown)
+    result = blocks_to_markdown(
+        blocks,
+        filter_func=lambda block: (
+            isinstance(block, (HeadingBlock, ParagraphBlock)) and 
+            "special" in block.text.lower()
+        ) if isinstance(block, (HeadingBlock, ParagraphBlock)) else True
+    )
+
+    # Should include only the special heading and its children
+    assert "# Special Heading" in result
+    assert "This is special content." in result
+    assert "# Normal Heading" not in result
+    assert "This is normal content." not in result
+
+
+def test_blocks_to_markdown_filter_exclude_code_blocks():
+    """Test filter that excludes code blocks."""
+    markdown = dedent(
+        """
+        Here is some code:
+
+        ```python
+        print("hello")
+        ```
+
+        And some text after.
+        """
+    )
+
+    blocks = markdown_to_blocks(markdown)
+    result = blocks_to_markdown(blocks, filter_func=lambda block: block.type.value != "block_code")
+
+    # Should exclude code block but include other content
+    assert "Here is some code:" in result
+    assert "```python" not in result
+    assert 'print("hello")' not in result
+    assert "And some text after." in result
