@@ -41,4 +41,4 @@ if __name__ == "__main__":
     blocks = markdown_to_blocks(markdown_content)
     for chunk in blocks_chunk(blocks):
         print(f"{' > '.join(chunk.title)}")
-        print(blocks_to_markdown([chunk.block], lambda b: True))
+        print(blocks_to_markdown([chunk.block], ))
