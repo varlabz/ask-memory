@@ -11,7 +11,7 @@ from ask import AgentASK
 from ask.core.config import load_config_dict
 from ask.core.memory import Memory
 
-from ask_memory.markdown_blocks import markdown_to_blocks
+from ask_memory.chunker.markdown_blocks import markdown_to_blocks
 
 llm = {
     "model": "ollama:gemma3:4b-it-q4_K_M",

@@ -2,7 +2,7 @@
 from dataclasses import dataclass
 from typing import Generator, Iterable, List, Optional
 
-from ask_memory.markdown_blocks import BaseBlock, HeadingBlock, NodeType
+from ask_memory.chunker.markdown_blocks import BaseBlock, HeadingBlock, NodeType
 
 @dataclass
 class ChunkBlock:
@@ -28,7 +28,7 @@ if __name__ == "__main__":
     # get file path from command line arguments
     # parse the file and print the chunks
     import sys
-    from ask_memory.markdown_blocks import markdown_to_blocks, blocks_to_markdown    
+    from ask_memory.chunker.markdown_blocks import markdown_to_blocks, blocks_to_markdown    
 
     if len(sys.argv) < 2:
         print("Usage: python script.py <markdown_file>")

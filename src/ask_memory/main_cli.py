@@ -2,7 +2,7 @@ import argparse
 import os
 from ask.core.config import EmbedderConfig, ProviderEnum
 from .retrievers.chroma import RetrieverChroma, get_embedding_function
-from .document import DocumentASK, _chunk_file_to_documents
+from .chunk import Chunk, _chunk_file_to_documents
 from datetime import datetime
 
 embedder = EmbedderConfig(

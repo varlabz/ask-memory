@@ -1,7 +1,7 @@
 import json
 from textwrap import dedent
 
-from ask_memory.markdown_blocks import blocks_to_markdown, markdown_to_blocks, ParagraphBlock
+from ask_memory.chunker.markdown_blocks import blocks_to_markdown, markdown_to_blocks, ParagraphBlock
 
 
 def test_extracts_expected_block_types():
@@ -439,7 +439,7 @@ def test_blocks_to_markdown_filter_only_paragraphs():
 
 def test_blocks_to_markdown_filter_by_content():
     """Test filter based on block content."""
-    from ask_memory.markdown_blocks import HeadingBlock, ParagraphBlock
+    from ask_memory.chunker.markdown_blocks import HeadingBlock, ParagraphBlock
 
     markdown = dedent(
         """

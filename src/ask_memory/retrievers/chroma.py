@@ -8,7 +8,7 @@ from chromadb.api.types import Embeddable
 from ask.core.config import EmbedderConfig, ProviderEnum
 
 from ..retriever import Retriever
-from ..document import DocumentASK
+from ..chunk import Chunk
 
 
 
@@ -39,14 +39,14 @@ class RetrieverChroma(Retriever):
             embedding_function=embedding_function
         )
 
-    def add(self, document: DocumentASK):
+    def add(self, document: Chunk):
         self.collection.add(
             documents=[document.text],
             ids=[document.id],
             metadatas=[dataclasses.asdict(document.metadata)]
         )
 
-    def search(self, query: str, n_results: int = 5) -> list[DocumentASK]:
+    def search(self, query: str, n_results: int = 5) -> list[Chunk]:
         results: QueryResult = self.collection.query(
             query_texts=[query],
             n_results=n_results
@@ -58,10 +58,10 @@ class RetrieverChroma(Retriever):
             return []
         documents = []
         for doc_text, doc_id, meta in zip(docs[0], ids[0], metadatas[0]):
-            documents.append(DocumentASK(
+            documents.append(Chunk(
                 text=doc_text,
                 id=doc_id,
-                metadata=DocumentASK.Metadata(
+                metadata=Chunk.Metadata(
                     source=str(meta['source']),
                     chunk_index=int(str(meta['chunk_index'])),  
                     timestamp=str(meta['timestamp'])  

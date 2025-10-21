@@ -1,11 +1,11 @@
 from abc import ABC, abstractmethod
-from .document import DocumentASK
+from .chunk import Chunk
 
 class Retriever(ABC):
     @abstractmethod
-    def add(self, document: DocumentASK):
+    def add(self, document: Chunk):
         pass
 
     @abstractmethod
-    def search(self, query: str, n_results: int = 5) -> list[DocumentASK]:
+    def search(self, query: str, n_results: int = 5) -> list[Chunk]:
         pass

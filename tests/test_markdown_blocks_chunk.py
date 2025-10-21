@@ -2,19 +2,19 @@ from textwrap import dedent
 
 import pytest
 
-from ask_memory.markdown_blocks import (
+from ask_memory.chunker.markdown_blocks import (
     BaseBlock,
     HeadingBlock,
     NodeType,
     ParagraphBlock,
     block_from_dict,
 )
-from ask_memory.markdown_blocks_chunk import blocks_chunk
+from ask_memory.chunker.markdown_blocks_chunk import blocks_chunk
 
 
 def _blocks_from_markdown(markdown: str) -> list[BaseBlock]:
     import mistune
-    from ask_memory.markdown_blocks import convert_block, nest_blocks
+    from ask_memory.chunker.markdown_blocks import convert_block, nest_blocks
     from collections.abc import Mapping
 
     md = mistune.create_markdown(renderer="ast", plugins=["table"])
