@@ -2,7 +2,7 @@
 from dataclasses import dataclass
 from typing import Generator, Iterable, List, Optional
 
-from ask_memory.markdown_blocks import BaseBlock, HeadingBlock
+from ask_memory.markdown_blocks import BaseBlock, HeadingBlock, NodeType
 
 @dataclass
 class ChunkBlock:
@@ -41,4 +41,4 @@ if __name__ == "__main__":
     blocks = markdown_to_blocks(markdown_content)
     for chunk in blocks_chunk(blocks):
         print(f"{' > '.join(chunk.title)}")
-        print(blocks_to_markdown([chunk.block], ))
+        print(blocks_to_markdown([chunk.block], filter_func=lambda b: b.type != NodeType.BLOCK_CODE))
