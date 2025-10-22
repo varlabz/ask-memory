@@ -13,7 +13,7 @@ from .retrievers.chroma import RetrieverChroma, get_embedding_function
 from datetime import datetime
 
 llm = load_config_dict({
-        "model": "ollama:gemma3:4b-it-q4_K_M",
+        "model": "ollama:gemma3:4b-it-q4_K_M", #qwen3:1.7b-q4_K_M", #gemma3:4b-it-q4_K_M",
         "base_url": "http://bacook.local:11434/v1/",
         "temperature": 0.0,
     }, 
@@ -38,13 +38,13 @@ async def main():
         print(f"Added file {args.file} to retriever.")
 
     if args.search:
-        results = rag._retriever.get(args.search)
+        results = rag._retriever.get(args.search, n_results=10)
         print("Search results:")
         for i, result in enumerate(results):
             print(f"{i+1}. {result}")
             
     if args.ask:
-        response = await rag.search(args.ask)
+        response = await rag.request(args.ask)
         print("Agent response:")
         print(response)
 
