@@ -65,8 +65,10 @@ PROMPT_INVALID = dedent("""
 
 def token_count_str(string: str) -> int:
     """Returns the number of tokens in a text string."""
-    encoding = tiktoken.get_encoding("cl100k_base")
-    return len(encoding.encode(string, disallowed_special=()))
+    # calculate number of words as a proxy for tokens
+    return len(string.split()) * 100 // 75
+    # encoding = tiktoken.get_encoding("cl100k_base")
+    # return len(encoding.encode(string, disallowed_special=()))
 
 class LLMSemanticChunker:
     async def split_file_block(self, file_path: str) -> list[str]:

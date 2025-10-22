@@ -1,9 +1,11 @@
 
 from email import message_from_string
+import io
+from pathlib import Path
 
-from markitdown import MarkItDown
+from markitdown import MarkItDown, StreamInfo
 
-def extract_html_from_mhtml(mhtml_file: str) -> str | None:
+def extract_html_from_mhtml_file(mhtml_file: str) -> str | None:
     def _extract_html_from_mhtml(mhtml_content: str) -> str | None:
         """Extract the largest HTML content from MHTML string."""
         # hacky way to parse MHTML content and get the largest HTML part
@@ -28,27 +30,28 @@ def extract_html_from_mhtml(mhtml_file: str) -> str | None:
     return _extract_html_from_mhtml(mhtml_content)  
 
 
+def file_to_markdown(filename: str) -> str:
+    """Convert a file to markdown using """
+    md = MarkItDown(enable_plugins=True)
+    if filename.endswith((".mhtml", ".mht")):
+        content = extract_html_from_mhtml_file(filename)
+        if content is None:
+            raise ValueError("No HTML content found in MHTML file.")
+        return md.convert(io.BytesIO(content.encode('utf-8')), stream_info=StreamInfo(extension=".html")).markdown
+
+    return md.convert(Path(filename)).markdown
+
 if __name__ == "__main__":
-    # get file path from command line argument
     import sys
     if len(sys.argv) < 2:
-        print("Usage: python utils.py <mhtml_file>")
+        print("Usage: python utils.py <file>")
         sys.exit(1)
 
-    # if extension is .mhtml or .mht
-    if sys.argv[1].endswith((".mhtml", ".mht")):
-        html_content = extract_html_from_mhtml(sys.argv[1])
-        if html_content:
-            with open("output.html", "w", encoding="utf-8") as f:
-                f.write(html_content)
-            print("Extracted HTML content saved to output.html")
-        else:
-            print("No HTML content found in the MHTML file.")
-        exit(0)
-    
-    md = MarkItDown(enable_plugins=True).convert(sys.argv[1])
-    print(md.markdown)
-    # with open("output.md", "w", encoding="utf-8") as f:
-    #     f.write(md.markdown)
-    # print("Converted Markdown content saved to output.md")
-    exit(0)
+    filename = sys.argv[1]
+    if filename.endswith((".mhtml", ".mht")):
+        content = extract_html_from_mhtml_file(filename)
+        print(content)
+        sys.exit(0)
+
+    markdown_content = file_to_markdown(filename)
+    print(markdown_content)

@@ -1,16 +1,15 @@
 
 import os
 import dataclasses
+from typing import get_type_hints, get_args
+from uuid import uuid4
 from chromadb import Client, Documents, EmbeddingFunction, PersistentClient, QueryResult
 from chromadb.config import Settings
 from chromadb.utils.embedding_functions import OllamaEmbeddingFunction,OpenAIEmbeddingFunction,GoogleGenerativeAiEmbeddingFunction
 from chromadb.api.types import Embeddable
 from ask.core.config import EmbedderConfig, ProviderEnum
 
-from ..retriever import Retriever
-from ..chunk import Chunk
-
-
+from .retriever import Chunk, Retriever
 
 def get_embedding_function(config: EmbedderConfig) -> EmbeddingFunction:
     # model format for embedding function -  provider:model_name
@@ -30,41 +29,37 @@ def get_embedding_function(config: EmbedderConfig) -> EmbeddingFunction:
         ProviderEnum.GOOGLE: GoogleGenerativeAiEmbeddingFunction,
     }[ProviderEnum(provider)](model_name=model_name, api_key_env_var="PROVIDER_API_KEY")
 
-class RetrieverChroma(Retriever):
-    def __init__(self, collection_name: str, embedding_function: EmbeddingFunction):
-
-        self.client = PersistentClient(path="./chroma-db")
-        self.collection = self.client.get_or_create_collection(
+class RetrieverChroma[ChunkType: Chunk = Chunk](Retriever[ChunkType]):
+    
+    def __init__(self, cls: type[ChunkType], collection_name: str, embedding_function: EmbeddingFunction, ):
+        self._cls = cls
+        self._metadata_type = get_args(cls)[0]
+        self._client = PersistentClient(path="./chroma-db")
+        self._collection = self._client.get_or_create_collection(
             name=collection_name,
             embedding_function=embedding_function
         )
 
-    def add(self, document: Chunk):
-        self.collection.add(
-            documents=[document.text],
-            ids=[document.id],
-            metadatas=[dataclasses.asdict(document.metadata)]
+    def add(self, chunk: ChunkType) -> None:
+        self._collection.add(
+            ids=uuid4().hex,
+            documents=[chunk.text],
+            metadatas=[dataclasses.asdict(chunk.metadata)]
         )
 
-    def search(self, query: str, n_results: int = 5) -> list[Chunk]:
-        results: QueryResult = self.collection.query(
+    def get(self, query: str, n_results: int = 5) -> list[ChunkType]:
+        results: QueryResult = self._collection.query(
             query_texts=[query],
             n_results=n_results
         )
         docs = results.get('documents')
-        ids = results.get('ids')
         metadatas = results.get('metadatas')
-        if not docs or not ids or not metadatas:
+        if not docs or not metadatas:
             return []
-        documents = []
-        for doc_text, doc_id, meta in zip(docs[0], ids[0], metadatas[0]):
-            documents.append(Chunk(
-                text=doc_text,
-                id=doc_id,
-                metadata=Chunk.Metadata(
-                    source=str(meta['source']),
-                    chunk_index=int(str(meta['chunk_index'])),  
-                    timestamp=str(meta['timestamp'])  
-                )
+        ret = []
+        for text, meta in zip(docs[0], metadatas[0]):
+            ret.append(self._cls(
+                text=text,
+                metadata=self._metadata_type(**meta),
             ))
-        return documents
+        return ret

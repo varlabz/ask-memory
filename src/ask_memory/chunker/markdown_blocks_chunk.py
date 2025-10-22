@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from typing import Generator, Iterable, List, Optional
 
 from ask_memory.chunker.markdown_blocks import BaseBlock, HeadingBlock, NodeType
+from ask_memory.core.utils import file_to_markdown
 
 @dataclass
 class ChunkBlock:
@@ -34,11 +35,8 @@ if __name__ == "__main__":
         print("Usage: python script.py <markdown_file>")
         sys.exit(1)
 
-    markdown_file = sys.argv[1]
-    with open(markdown_file, "r") as f:
-        markdown_content = f.read()
-
-    blocks = markdown_to_blocks(markdown_content)
+    file = sys.argv[1]
+    blocks = markdown_to_blocks(file_to_markdown(file))
     for chunk in blocks_chunk(blocks):
         print(f"{' > '.join(chunk.title)}")
         print(blocks_to_markdown([chunk.block], filter_func=lambda b: b.type != NodeType.BLOCK_CODE))
