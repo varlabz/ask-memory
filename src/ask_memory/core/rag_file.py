@@ -7,25 +7,22 @@ import sys
 from textwrap import dedent
 from pydantic import Field
 
-from ask import AgentASK, ContextASK
+from ask.core.agent import AgentASK
 from ask.core.config import load_config_dict
 from ask.core.memory import Memory
 from ask.core.config import EmbedderConfig, Config, LLMConfig
 
 from ask_memory.chunker.markdown_blocks import NodeType, blocks_to_markdown, markdown_to_blocks
 from ask_memory.chunker.markdown_blocks_chunk import blocks_chunk
-from ask_memory.retrievers.retriever import Chunk, Retriever
-from ask_memory.retrievers.chroma import RetrieverChroma, get_embedding_function
+from ask_memory.retriever.retriever import Chunk, Retriever
+from ask_memory.retriever.chroma import RetrieverChroma, get_embedding_function
 from ask_memory.core.utils import file_to_markdown
+from src.ask_memory.chunker.llm_semantic_chunker import NoMemory
 
 class AgentChunkInput(ContextASK):
     request: str = Field(description="The query.")
     data: list[str] = Field(description="The data of the chunks.")
     error: str = Field(default="No errors", description="Error message, if any.")
-
-class NoMemory(Memory):
-    def get(self) -> list: return []
-    def set(self, messages: list): pass
 
 def _create_search_agent(llm: LLMConfig) -> AgentASK[AgentChunkInput, str]:
     return AgentASK[AgentChunkInput, str].create_from_config(load_config_dict({

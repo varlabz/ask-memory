@@ -6,10 +6,10 @@ from ask.core.config import EmbedderConfig, ProviderEnum, load_config_dict, LLMC
 
 from ask_memory.chunker.markdown_blocks import NodeType, blocks_to_markdown, markdown_to_blocks
 from ask_memory.chunker.markdown_blocks_chunk import blocks_chunk
-from ask_memory.retrievers.retriever import Retriever
+from ask_memory.retriever.retriever import Retriever
 from ask_memory.core.rag_file import AgentChunkInput, FileRAG
 from ask_memory.core.utils import file_to_markdown
-from .retrievers.chroma import RetrieverChroma, get_embedding_function
+from .retriever.chroma import RetrieverChroma, get_embedding_function
 from datetime import datetime
 
 llm = load_config_dict({

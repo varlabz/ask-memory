@@ -29,7 +29,7 @@ def get_embedding_function(config: EmbedderConfig) -> EmbeddingFunction:
         ProviderEnum.GOOGLE: GoogleGenerativeAiEmbeddingFunction,
     }[ProviderEnum(provider)](model_name=model_name, api_key_env_var="PROVIDER_API_KEY")
 
-class RetrieverChroma[ChunkType: Chunk = Chunk](Retriever[ChunkType]):
+class RetrieverChroma[ChunkType: Chunk](Retriever[ChunkType]):
     
     def __init__(self, cls: type[ChunkType], collection_name: str, embedding_function: EmbeddingFunction, ):
         self._cls = cls
@@ -63,3 +63,6 @@ class RetrieverChroma[ChunkType: Chunk = Chunk](Retriever[ChunkType]):
                 metadata=self._metadata_type(**meta),
             ))
         return ret
+
+    def clear(self) -> None:
+        self._client.delete_collection(self._collection.name)
