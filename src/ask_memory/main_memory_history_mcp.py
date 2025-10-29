@@ -10,14 +10,18 @@ from mcp.server.fastmcp import FastMCP
 from pydantic import BaseModel, Field
 
 from ask.core.config import EmbedderConfig, LLMConfig, load_config
-from ask_memory.memory_history.memory_history import MemoryHistory
+from ask_memory.memory_history.memory_history import MemoryChunk, MemoryHistory
 
 
 class MemoryHistoryResult(BaseModel):
-    """Memory history search result."""
+    """Memory history search result for MCP tools."""
     
-    request: str = Field(description="The original user query or request")
-    response: str = Field(description="The LLM response or content")
+    query: str = Field(description="The original user query or request")
+    content: str = Field(description="The LLM response or content")
+    context: str = Field(description="One sentence summary of the interaction")
+    tags: str = Field(description="Broad categories or themes")
+    keywords: str = Field(description="Key concepts and terminology")
+    timestamp: str = Field(description="ISO format timestamp of when the memory was created")
 
 
 mcp = FastMCP("Memory History", instructions="Store and search conversation memory")
@@ -40,7 +44,17 @@ async def search_memory_history(
 ) -> list[MemoryHistoryResult]:
     """Search memory history for entries related to the query."""
     results = await _memory.search(query)
-    return [MemoryHistoryResult(request=r.request, response=r.response) for r in results]
+    return [
+        MemoryHistoryResult(
+            query=chunk.metadata.query,
+            content=chunk.metadata.content,
+            context=chunk.metadata.context,
+            tags=chunk.metadata.tags,
+            keywords=chunk.metadata.keywords,
+            timestamp=chunk.metadata.timestamp,
+        )
+        for chunk in results
+    ]
 
 
 def main():

@@ -2,6 +2,7 @@
 from dataclasses import dataclass
 from datetime import datetime
 import json
+import sys
 from textwrap import dedent
 from pydantic import Field, BaseModel
 
@@ -25,11 +26,6 @@ class MemoryMeta:
     timestamp: str = datetime.now().isoformat() 
    
 MemoryChunk = Chunk[MemoryMeta]
-
-@dataclass
-class MemoryHistoryOutput:
-    request: str
-    response: str
 
 class MemoryHistory:
     _retriever: Retriever[MemoryChunk]
@@ -66,15 +62,15 @@ class MemoryHistory:
         )
         self._retriever.add(chunk)
 
-    def get(self, query: str) -> list[MemoryHistoryOutput]:
+    def get(self, query: str) -> list[MemoryChunk]:
         """
         Get memory history related to the query.
         """
         res = self._retriever.get(query, n_results=5)
         res.sort(key=lambda c: c.metadata.timestamp, reverse=False)
-        return [MemoryHistoryOutput(request=chunk.metadata.query, response=chunk.metadata.content) for chunk in res]
+        return res
 
-    async def search(self, query: str) -> list[MemoryHistoryOutput]:
+    async def search(self, query: str) -> list[MemoryChunk]:
         """
         Search memory history with ranking.
         
@@ -86,7 +82,9 @@ class MemoryHistory:
         """
         # Get retriever results
         chunks = self._retriever.get(query, n_results=7*3)
-        rerank_result = await self._reranker.run(RerankInput(query=query, responses=[chunk.metadata.content for chunk in chunks]))
+        print(f"Retrieved chunks: {len(chunks)}", file=sys.stderr)
+        rerank_result = await self._reranker.run(RerankInput(query=query, responses=[chunk.text for chunk in chunks]))
+        print("Rerank result:", rerank_result, file=sys.stderr)
         if len(rerank_result.ranks) != len(chunks):
             raise ValueError("Reranker output length does not match number of retrieved chunks")
         ranked_results = list(zip(chunks, rerank_result.ranks))
@@ -95,7 +93,7 @@ class MemoryHistory:
         chunks = [chunk for chunk, _ in ranked_results[:7]]
         # Sort by timestamp in increasing order
         chunks.sort(key=lambda c: c.metadata.timestamp, reverse=False)
-        return [MemoryHistoryOutput(request=chunk.metadata.query, response=chunk.metadata.content) for chunk in chunks]
+        return chunks
 
     def clear(self):
         self._retriever.clear()

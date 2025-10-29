@@ -6,7 +6,7 @@ from pydantic import Field, BaseModel
 from xml.sax.saxutils import escape
 
 from ask.core.agent import AgentASK
-from ask.core.context import example
+from ask.core.context import example, schema
 from ask.core.memory import NoMemory
 from ask.core.config import EmbedderConfig, Config, LLMConfig
 
@@ -93,11 +93,19 @@ def create_rerank_agent(llm: LLMConfig): return AgentASK[RerankInput, RerankOutp
             2. How well it addresses the query's intent
             3. Topical overlap and context relevance
             
-            Return the ranks as an array of integers from 0 to 100, in the same order as the input responses.
+            Must return the ranks as an array of integers from 0 to 100, in the same order as the input responses.
             
             Output example:
             {example(RerankOutput(
                 ranks=[95, 78, 45, 12, 88]
+            ))}
+            or
+            {example(RerankOutput(
+                ranks=[15]
+            ))}
+            or
+            {example(RerankOutput(
+                ranks=[15, 60]
             ))}
         """),
         "input_type": RerankInput,

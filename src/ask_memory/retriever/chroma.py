@@ -30,11 +30,11 @@ def get_embedding_function(config: EmbedderConfig) -> EmbeddingFunction:
     }[ProviderEnum(provider)](model_name=model_name, api_key_env_var="PROVIDER_API_KEY")
 
 class RetrieverChroma[ChunkType: Chunk](Retriever[ChunkType]):
-    
-    def __init__(self, cls: type[ChunkType], collection_name: str, embedding_function: EmbeddingFunction, ):
+
+    def __init__(self, cls: type[ChunkType], collection_name: str, embedding_function: EmbeddingFunction, path: str = "./chroma-db"):
         self._cls = cls
         self._metadata_type = get_args(cls)[0]
-        self._client = PersistentClient(path="./chroma-db")
+        self._client = PersistentClient(path=path, settings=Settings(anonymized_telemetry=False))
         self._collection = self._client.get_or_create_collection(
             name=collection_name,
             embedding_function=embedding_function
