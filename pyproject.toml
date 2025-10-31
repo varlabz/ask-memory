@@ -15,6 +15,7 @@ dependencies = [
 
 [project.scripts]
 memory-mcp = "ask_memory.main_memory_history_mcp:main"
+history-mcp = "ask_memory.history_mcp:main"
 test = "ask_memory.main_cli:main"
 
 
