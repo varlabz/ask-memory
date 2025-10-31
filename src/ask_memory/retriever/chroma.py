@@ -40,24 +40,45 @@ class RetrieverChroma[ChunkType: Chunk](Retriever[ChunkType]):
             embedding_function=embedding_function
         )
 
-    def add(self, chunk: ChunkType) -> None:
+    def add(self, chunk: ChunkType) -> ChunkType:
         self._collection.add(
             ids=uuid4().hex,
             documents=[chunk.text],
             metadatas=[dataclasses.asdict(chunk.metadata)]
         )
+        return chunk
 
-    def get(self, query: str, n_results: int = 5) -> list[ChunkType]:
-        results: QueryResult = self._collection.query(
+    def query(self, query: str, results: int, after: int) -> list[ChunkType]:
+        res: QueryResult = self._collection.query(
             query_texts=[query],
-            n_results=n_results
+            n_results=results,
+            where={"timestamp": {"$lte": after}}
+        )
+        docs = res.get('documents')
+        metadatas = res.get('metadatas')
+        if not docs or not metadatas:
+            return []
+        ret = []
+        for text, meta in zip(docs[0], metadatas[0]):
+            ret.append(self._cls(
+                text=text,
+                metadata=self._metadata_type(**meta),
+            ))
+        return ret
+
+    def get_page(self, page: int, page_size: int, after: int) -> list[ChunkType]:
+        offset = (page - 1) * page_size
+        results = self._collection.get(
+            offset=offset,
+            limit=page_size,
+            where={"timestamp": {"$lte": after}}
         )
         docs = results.get('documents')
         metadatas = results.get('metadatas')
         if not docs or not metadatas:
             return []
         ret = []
-        for text, meta in zip(docs[0], metadatas[0]):
+        for text, meta in zip(docs, metadatas):
             ret.append(self._cls(
                 text=text,
                 metadata=self._metadata_type(**meta),

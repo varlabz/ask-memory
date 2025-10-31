@@ -23,7 +23,7 @@ class MemoryMeta:
     context: str            # one sentence summary
     tags: str               # broad categories/themes
     keywords: str           # key concepts/terminology
-    timestamp: str = datetime.now().isoformat() 
+    timestamp: int = int(datetime.now().timestamp()) 
    
 MemoryChunk = Chunk[MemoryMeta]
 
@@ -36,7 +36,7 @@ class MemoryHistory:
         self._agent = create_analysis_agent(llm)
         self._reranker = create_rerank_agent(llm)
 
-    async def add(self, query: str, response: str) -> None:
+    async def add(self, query: str, response: str) -> MemoryChunk:
         res = await self._agent.run(
             AnalysisInput(
                 query=query,
@@ -60,34 +60,41 @@ class MemoryHistory:
                 keywords=', '.join(res.keywords),
             ),
         )
-        self._retriever.add(chunk)
+        return self._retriever.add(chunk)
 
-    def get(self, query: str) -> list[MemoryChunk]:
+    def get_page(self, page: int = 1, page_size: int = 50, after: int = int(datetime.now().timestamp())) -> list[MemoryChunk]:
         """
-        Get memory history related to the query.
+        Get a page of memory history entries.
+        Args:
+            page: Page number (1-based)
+            page_size: Number of results per page
+            after: Unix timestamp to filter entries created before this time
         """
-        res = self._retriever.get(query, n_results=5)
+        res = self._retriever.get_page(page=page, page_size=page_size, after=after)
         res.sort(key=lambda c: c.metadata.timestamp, reverse=False)
         return res
 
-    async def search(self, query: str) -> list[MemoryChunk]:
+    async def query(self, query: str, after: int) -> list[MemoryChunk]:
         """
         Search memory history with ranking.
         
         Args:
             query: Search query string
+            after: Unix timestamp to filter entries created before this time
             
         Returns:
             List of MemoryHistoryOutput sorted by timestamp, limited to first 7 results with highest rank
         """
         # Get retriever results
-        chunks = self._retriever.get(query, n_results=7*3)
+        chunks = self._retriever.query(query, results=7*3, after=after)
         print(f"Retrieved chunks: {len(chunks)}", file=sys.stderr)
         rerank_result = await self._reranker.run(RerankInput(query=query, responses=[chunk.text for chunk in chunks]))
         print("Rerank result:", rerank_result, file=sys.stderr)
         if len(rerank_result.ranks) != len(chunks):
             raise ValueError("Reranker output length does not match number of retrieved chunks")
         ranked_results = list(zip(chunks, rerank_result.ranks))
+        # filter out low rank scores, check reranker output for scores
+        ranked_results = [item for item in ranked_results if item[1] > 16]
         # Sort by rank score (descending) and take top 7
         ranked_results.sort(key=lambda x: x[1], reverse=True)
         chunks = [chunk for chunk, _ in ranked_results[:7]]
@@ -107,8 +114,24 @@ if __name__ == "__main__":
     parser.add_argument('--add', nargs=2, metavar=('query', 'response'), help='Add a query and response to memory')
     parser.add_argument('--clear', action='store_true', help='Clear all memory history')
     parser.add_argument('--query', metavar='query', help='Query the memory history for related responses')
+    parser.add_argument('--after', metavar='timestamp', help='ISO timestamp or Unix timestamp to filter entries created before this time (used with --query)', default=None)
     
     args = parser.parse_args()
+    
+    # Convert after timestamp if provided
+    if args.after:
+        try:
+            # Try to parse as int (Unix timestamp)
+            after_timestamp = int(args.after)
+        except ValueError:
+            # Try to parse as ISO format string
+            try:
+                after_timestamp = int(datetime.fromisoformat(args.after).timestamp())
+            except ValueError:
+                print(f"Invalid timestamp format: {args.after}", file=sys.stderr)
+                sys.exit(1)
+    else:
+        after_timestamp = int(datetime.now().timestamp())
     
     from ask.core.config import TraceConfig, load_config
     from ask.core.instrumentation import setup_instrumentation_config
@@ -140,7 +163,7 @@ if __name__ == "__main__":
         memory_history.clear()
         print("Memory history cleared.")
     elif args.query:
-        results = asyncio.run(memory_history.search(args.query))
+        results = asyncio.run(memory_history.query(args.query, after=after_timestamp))
         if results:
             print("Related responses:")
             for i, response in enumerate(results, 1):
